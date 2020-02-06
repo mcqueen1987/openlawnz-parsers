@@ -1,96 +1,177 @@
-const { setLogFile, setLogDir, log } = require('../common/functions').makeLogger();
+const {findAcronymItemByCitation} = require('./../common/functions');
 
-const courtsMap = {
-	NZSC: 'Supreme Court',
-	SC: 'Supreme Court',
-	NZCA: 'Court of appeal',
-	NZHC: 'High Court',
-	HC: 'High Court',
-	NZFC: 'Family Court',
-	NZDC: 'District Court',
-	DC: 'District Court',
-	NZACC: 'ACC Tribunal',
-	COA: 'Court of Appeal',
-	NZLR: 'Law Report'
-};
+const SCHEMA = 'cases';
+const COURT_TO_CASES = SCHEMA + '.court_to_cases';
+const CASE_CITATIONS = SCHEMA + '.case_citations';
+const TABLE_COURT = 'courts';
+const COURTS = SCHEMA + '.' + TABLE_COURT;
+const CASES = SCHEMA + '.cases';
 
-/**
- * Parse Invalid Characters
- * @param PostgresqlConnection connection
- */
-const run = async (pgPromise, connection, logDir) => {
-	console.log('\n-----------------------------------');
-	console.log('Parse courts');
-	console.log('-----------------------------------\n');
+class CourtParser {
+    constructor(conn, promise) {
+        this.connection = conn;
+        this.pgPromise = promise;
+    }
 
-	setLogDir(logDir);
-	setLogFile(__filename);
+    getCitations = () => {
+        return this.connection.any(`SELECT case_id, citation FROM ${CASE_CITATIONS}`);
+    };
 
-	console.log('Loading all cases and case citations');
+    getCourts = () => {
+        return this.connection.any(`SELECT * FROM ${COURTS}`);
+    };
 
-	// First insert all the courts into the DB
-	const cs = new pgPromise.helpers.ColumnSet([ 'acronym', 'court_name' ], { table: 'courts' });
-	const values = Object.keys(courtsMap).map((acronym) => ({ acronym, court_name: courtsMap[acronym] }));
-	const query = pgPromise.helpers.insert(values, cs);
+    getCourtNameByCaseText = (caseText) => {
+        // parse court_name from case_text
+        let regexCourtName = /IN\sTHE\s([\s|A-Z]+)OF\s([\s|A-Z]+)/;
+        let match = caseText.match(regexCourtName);
+        if (!match || !match[1]) {
+            regexCourtName = /IN\sTHE\s(HIGH COURT)OF\s([\s|A-Z]+)/;
+            match = caseText.match(regexCourtName);
+        }
+        if (match && match[1]) {
+            return match[1].trim();
+        }
+        return null;
+    };
 
-	await connection.none(query);
+    getCourtForUpdate = async (citationRow, courts, updatedCourts) => {
+        const {case_id: caseId, citation} = citationRow;
+        const foundCourt = findAcronymItemByCitation(courts, citation);
+        if (!foundCourt) {
+            console.log(' can not get correspond court by citation: ', citation);
+            return;
+        }
+        // update courts row if don't have court_name,
+        if (!updatedCourts[foundCourt['id']] && !foundCourt['court_name']) {
+            const foundCase = await this.connection.any(`SELECT case_text from ${CASES} WHERE id=${caseId}`);
+            const courtName = this.getCourtNameByCaseText(foundCase[0]['case_text']);
+            if (!courtName) {
+                console.log(' can not find court name by : ', citationRow);
+                return;
+            }
+            // update new court_name to courts table
+            updatedCourts[foundCourt['id']] = {
+                id: foundCourt['id'],
+                court_name: courtName
+            };
+        }
+    };
 
-	const courts = await connection.any('SELECT * FROM courts');
+    saveCourts = async (courts) => {
+        if (!courts || !courts.length) {
+            return;
+        }
+        const courtsColumnSet = new this.pgPromise.helpers.ColumnSet(
+            ['id', 'court_name'],
+            {table: {table: TABLE_COURT, schema: SCHEMA}}
+        );
+        const updateMultiSql = this.pgPromise.helpers.update(courts, courtsColumnSet) + ' WHERE v.id = t.id';
+        await this.connection.none(updateMultiSql);
+    };
 
-	let [ cases, case_citations ] = await connection.multi(
-		'SELECT * FROM cases LIMIT 100; SELECT * FROM case_citations LIMIT 100'
-	);
-	// We can select one citation for each case to determine the court
 
-	cases = cases
-		.map((c) => {
-			const first_case_citation = case_citations.find((ci) => ci.case_id === c.id);
-			if (first_case_citation) {
-				const [ citation_name ] = first_case_citation.citation.match(/([a-zA-Z]+)/);
-				if (citation_name) {
-					return {
-						id: c.id,
-						citation: citation_name.trim()
-					};
-				}
-				return null;
-			}
-			return null;
-		})
-		.filter((c) => c !== null);
+    getAllCourtsNeedUpdate = async (citations, courts) => {
+        let courtsToUpdate = {};
+        for (let i = 0; i < citations.length; i++) {
+            await this.getCourtForUpdate(citations[i], courts, courtsToUpdate);
+        }
 
-	await connection.tx((t) => {
-		for (let x = 0; x < cases.length; x++) {
-			console.log(`Processing court to cases ${x + 1}/${cases.length}`);
+        return courtsToUpdate;
 
-			const legalCase = cases[x];
+    };
 
-			const found_court = courts.find((c) => legalCase.citation.toUpperCase().includes(c.acronym.toUpperCase()));
+    /**
+     * 1, get all citation in case_citations
+     * 2, get correspond case_text and parse court_name from case_text
+     * 3, find court by citation
+     * 4, if court_name in table courts is empty, record it to update later
+     * issue: https://github.com/openlawnz/openlawnz-parsers/issues/8
+     *
+     */
+    updateCourtsByCitations = async (citations, courts) => {
+        console.log('\n-----------------------------------');
+        console.log('update courts');
+        console.log('-----------------------------------\n');
 
-			if (found_court) {
-				return t.none('INSERT INTO court_to_cases (court_id, case_id) VALUES ($1, $2)', [
-					found_court.id,
-					legalCase.id
-				]);
-			} else {
-				log('[' + legalCase.id + '] ' + legalCase.citation + '\n', true, 'missing-courts');
-			}
-		}
-	});
-	console.log('Done');
+        // 2. get courts need to update
+        const courtsToUpdate = await this.getAllCourtsNeedUpdate(citations, courts);
+
+        // 3. update courts
+        await this.saveCourts(Object.values(courtsToUpdate));
+
+        console.log('\n-----------------------------------');
+        console.log('DONE: update courts');
+        console.log('-----------------------------------\n');
+    };
+
+    getCourtToCasesSQL = async (courtId, caseId) => {
+        // insert court_to_cases row, if Court conflict, update
+        const results = await this.connection.any(`SELECT count(*) as cnt from ${COURT_TO_CASES} where case_id='${caseId}'`);
+        if (results && parseInt(results[0]['cnt'])) {
+            return `UPDATE ${COURT_TO_CASES} SET court_id='${courtId}' where case_id='${caseId}'`;
+        } else {
+            return `INSERT INTO ${COURT_TO_CASES} (court_id, case_id) VALUES ('${courtId}', '${caseId}')`;
+        }
+    };
+
+    getAllCourtToCasesSQLs = async (citations, courts) => {
+        const updateOrInsertSQLs = [];
+        await Promise.all(citations.map(async (citationRow) => {
+            const foundCourt = findAcronymItemByCitation(courts, citationRow['citation']);
+            if (foundCourt) {
+                updateOrInsertSQLs.push(await this.getCourtToCasesSQL(foundCourt['id'], citationRow['case_id']))
+            }
+        }));
+
+        return updateOrInsertSQLs
+    };
+
+    /**
+     * 1, get each citation in case_citations
+     * 2, get acronym and court_id by citation
+     * 3, update court_to_cases with court_id and case_id
+     * issue: https://github.com/openlawnz/openlawnz-parsers/issues/8
+     *
+     * @returns {Promise<void>}
+     */
+    updateCourtToCases = async (citations, courts) => {
+        console.log('\n-----------------------------------');
+        console.log('update court to cases');
+        console.log('-----------------------------------\n');
+        const SQLs = this.getAllCourtToCasesSQLs(citations, courts);
+
+        if (SQLs.length) {
+            await this.connection.multi(SQLs.join(';'));
+        }
+        console.log('\n-----------------------------------');
+        console.log('DONE: update court to cases');
+        console.log('-----------------------------------\n');
+    };
+}
+
+const run = async (conn, promise) => {
+    const parser = new CourtParser(conn, promise);
+
+    const citations = await parser.getCitations();
+    const courts = await parser.getCourts();
+
+    await parser.updateCourtsByCitations(citations, courts);
+
+    await parser.updateCourtToCases(citations, courts);
 };
 
 if (require.main === module) {
-	const argv = require('yargs').argv;
-	(async () => {
-		try {
-			const { pgPromise, connection, logDir } = await require('../common/setup')(argv.env);
-			await run(pgPromise, connection, logDir);
-		} catch (ex) {
-			console.log(ex);
-		}
-	})().finally(process.exit);
+    const argv = require('yargs').argv;
+    (async () => {
+        try {
+            const {connection, pgPromise} = await require('../common/setup')(argv.env);
+            await run(connection, pgPromise);
+        } catch (ex) {
+            console.log(ex);
+        }
+    })().finally(process.exit);
 } else {
-	module.exports = run;
-	module.exports.courtsMap = courtsMap;
+    module.exports = run;
+    module.exports.CourtParser = CourtParser
 }

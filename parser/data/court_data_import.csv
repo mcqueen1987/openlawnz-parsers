@@ -1,0 +1,64 @@
+id,abbreviation,court-name,law-report,Category
+1,RMA,,New Zealand Resource Management Appeals,Resource Management
+2,NZELC,,New Zealand Employment Law Cases,Employment
+3,NZBLC,,New Zealand Business Law Cases,Commercial
+4,NZRA,New Zealand Review Authority,,
+5,NZCR,,New Zealand Criminal Cases,Criminal
+6,ERNZ,,Employment Reports of New Zealand,Employment
+7,NZELR,,New Zealand Employment Law Reports,Employment
+8,IPR,,New Zealand Intellectual Property Reports,Commercial
+9,NZCLC,,New Zealand Company Law Cases,Commercial
+10,NZRMA,,New Zealand Resource Management Appeals,Resource Management
+11,CRNZ,,Criminal Reports of New Zealand,Criminal
+12,FRNZ,,Family Reports of New Zealand,Family
+13,ELRNZ,,Environmental Law Reports of New Zealand,Resource Management
+14,HRNZ,,Human Rights Reports of New Zealand,
+15,TCLR,,Trade and Competition Law Reports,Commercial
+16,NZAR,,New Zealand Administrative Reports,Public
+17,PRNZ,,Procedure Reports of New Zealand,Civil Procedure
+18,NZFLR,,New Zealand Family Law Reports,Family
+19,NZTRA,Taxation Review Authority,,
+20,NZTR,,New Zealand Trust Reports,Trust
+21,NZTC,,New Zealand Tax Cases,
+22,NZACC,District Court,,ACC
+23,NZDC,District Court,,
+24,NZFC,Family Court,,
+25,NZHC,High Court,,
+26,NZCAA,Customs Appeal Authority,,
+27,NZCA,Court of Appeal,,
+28,NZSC,Supreme Court,,
+29,NZEnvC,Environment Court,,Resource Management
+30,NZEmpC,Employment Court,,Employment
+31,NZACA,Accident Compensation Appeal Authority,,ACC
+32,NZBSA,Broadcasting Standards Authority,,
+33,NZCCLR,,New Zealand Company and Commercial Law Reports,Commercial
+34,NZCC,Commerce Commission,,
+35,NZCOP,Copyright Tribunal,,Commercial
+36,NZDRT,Deportation Review Tribunal,,
+37,NZHRRT,Human Rights Review Tribunal,,
+38,NZIACDT,Immigration Advisers Complaints and Disciplinary Tribunal,,
+39,NZIPT,Immigration and Protection Tribunal,,
+40,NZIEAA,International Education Appeal Authority,,
+41,NZLVT,Land Valuation Tribunal,,
+42,NZLCDT,Lawyers and Conveyancers Disciplinary Tribunal,,
+43,NZLAT,Legal Aid Tribunal,,
+44,NZSHD,Licensing Authority of Secondhand Dealers and Pawnbrokers,,
+45,NZLLA,Liquor Licensing Authority,,
+46,NZMVDT,Motor Vehicle Disputes Tribunal,,
+47,NZPSPLA,Private Security Personnel Licensing Authority,,
+48,NZREADT,Real Estate Agents Disciplinary Tribunal,,
+49,NZSSAA,Social Security Appeal Authority,,
+50,NZSAAA,Student Allowance Appeal Authority,,
+51,NZLR,,New Zealand Law Reports,
+52,NZCPR,,New Zealand Conveyancing and Property Reports,
+53,SC,Supreme Court,,
+54,HC,High Court,,
+55,DC,District Court,,
+56,COA,Court of Appeal,,
+57,NZYC,Youth Court,,
+58,UKPC,Privy Council,,
+59,CA,Court of Appeal,,
+60,ACC,Accident Compensation Appeal Authority,,ACC
+61,SSC,supreme court,,
+62,SCOA,court of appeal,,
+63,SCA,court of appeal,,
