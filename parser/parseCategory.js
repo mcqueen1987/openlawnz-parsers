@@ -30,7 +30,7 @@ class CategoryParser {
         }
         const foundCategory = this.categories.find((categoryItem) => categoryItem.category === category);
         // if category conflict - add both categories (unique (case_id, category_id))
-        const sql = `INSERT INTO ${Table.CategoryToCases} (case_id, category_id) VALUES (${caseId}, ${foundCategory['id']}) ON CONFLICT DO NOTHING `;
+        const sql = `INSERT INTO ${Table.CategoryToCases} (case_id, category_id) VALUES (${caseId}, ${foundCategory.id}) ON CONFLICT DO NOTHING `;
         await this.connection.none(sql);
     };
 
@@ -41,7 +41,6 @@ class CategoryParser {
      * 4, only save categories is 'ACC' and 'NZACC'
      * issue: https://github.com/openlawnz/openlawnz-parsers/issues/8
      *
-     * @param connection
      * @returns {Promise<void>}
      */
     updateCategoryToCases = async () => {
@@ -66,7 +65,6 @@ class CategoryParser {
         console.log('-----------------------------------\n');
     }
 }
-
 
 const run = async (connection) => {
     const parser = new CategoryParser(connection);

@@ -120,7 +120,7 @@ describe('getAllCourtToCasesSQLs', () => {
         const parser = new CourtParser(mockConnection);
         const actual = await parser.getAllCourtToCasesSQLs(citations, courts);
         const expected = [
-            "UPDATE cases.court_to_cases SET court_id='4' where case_id='50'",
+            "UPDATE cases.court_to_cases SET court_id='4' WHERE case_id='50'",
             "INSERT INTO cases.court_to_cases (court_id, case_id) VALUES ('5', '51')"
         ];
         expect(actual).to.eql(expected);

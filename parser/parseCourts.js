@@ -64,15 +64,12 @@ class CourtParser {
         await this.connection.none(updateMultiSql);
     };
 
-
     getAllCourtsNeedUpdate = async (citations, courts) => {
         let courtsToUpdate = {};
         for (let i = 0; i < citations.length; i++) {
             await this.getCourtForUpdate(citations[i], courts, courtsToUpdate);
         }
-
         return courtsToUpdate;
-
     };
 
     /**
@@ -81,19 +78,15 @@ class CourtParser {
      * 3, find court by citation
      * 4, if court_name in table courts is empty, record it to update later
      * issue: https://github.com/openlawnz/openlawnz-parsers/issues/8
-     *
      */
     updateCourtsByCitations = async (citations, courts) => {
         console.log('\n-----------------------------------');
         console.log('update courts');
         console.log('-----------------------------------\n');
-
-        // 2. get courts need to update
+        // 1. get courts need to update
         const courtsToUpdate = await this.getAllCourtsNeedUpdate(citations, courts);
-
-        // 3. update courts
+        // 2. update courts
         await this.saveCourts(Object.values(courtsToUpdate));
-
         console.log('\n-----------------------------------');
         console.log('DONE: update courts');
         console.log('-----------------------------------\n');
@@ -101,9 +94,9 @@ class CourtParser {
 
     getCourtToCasesSQL = async (courtId, caseId) => {
         // insert court_to_cases row, if Court conflict, update
-        const results = await this.connection.any(`SELECT count(*) as cnt from ${Table.CourtToCases} where case_id='${caseId}'`);
+        const results = await this.connection.any(`SELECT count(*) AS cnt FROM ${Table.CourtToCases} WHERE case_id='${caseId}'`);
         if (results && parseInt(results[0]['cnt'])) {
-            return `UPDATE ${Table.CourtToCases} SET court_id='${courtId}' where case_id='${caseId}'`;
+            return `UPDATE ${Table.CourtToCases} SET court_id='${courtId}' WHERE case_id='${caseId}'`;
         } else {
             return `INSERT INTO ${Table.CourtToCases} (court_id, case_id) VALUES ('${courtId}', '${caseId}')`;
         }
@@ -114,11 +107,11 @@ class CourtParser {
         await Promise.all(citations.map(async (citationRow) => {
             const foundCourt = findAcronymItemByCitation(courts, citationRow['citation']);
             if (foundCourt) {
-                updateOrInsertSQLs.push(await this.getCourtToCasesSQL(foundCourt['id'], citationRow['case_id']))
+                updateOrInsertSQLs.push(await this.getCourtToCasesSQL(foundCourt['id'], citationRow['case_id']));
             }
         }));
 
-        return updateOrInsertSQLs
+        return updateOrInsertSQLs;
     };
 
     /**
@@ -134,7 +127,6 @@ class CourtParser {
         console.log('update court to cases');
         console.log('-----------------------------------\n');
         const SQLs = this.getAllCourtToCasesSQLs(citations, courts);
-
         if (SQLs.length) {
             await this.connection.multi(SQLs.join(';'));
         }
@@ -151,7 +143,6 @@ const run = async (conn, promise) => {
     const courts = await parser.getCourts();
 
     await parser.updateCourtsByCitations(citations, courts);
-
     await parser.updateCourtToCases(citations, courts);
 };
 

@@ -1,6 +1,5 @@
 /**
  * regex of Neutral Citation
- * todo: update the regex from the acronym in table cases.courts dynamically but not hard coding
  *
  * test/data/citation-year.txt iis the sample file of Neutral Citation
  */

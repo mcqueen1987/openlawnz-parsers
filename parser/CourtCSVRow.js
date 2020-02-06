@@ -1,8 +1,4 @@
-const TABLE_ACRONYMS = 'citation_acronyms';
-const TABLE_CATEGORIES = 'categories';
-const TABLE_COURTS = 'courts';
-
-const SCHEMA = 'cases';
+const {Table} = require('./table');
 
 /**
  * import a row of court data(CSV) to database
@@ -10,9 +6,7 @@ const SCHEMA = 'cases';
  * original csv data format:
  *   id,abbreviation,court-name,law-report,Category
  *   1,RMA,,New Zealand Resource Management Appeals,Resource Management
- *
  */
-
 class CourtCSVRow {
     constructor(connection, csvData) {
 
@@ -29,19 +23,17 @@ class CourtCSVRow {
     /**
      * insert CSV data into courts, update if acronym exist otherwise insert
      *
-     * @param connection
-     * @param courtsData
      * @returns {Promise<void>}
      */
     importCourt = async () => {
         if (!this.acronym) {
             return;
         }
-        const results = await this.connection.any(`SELECT count(*) as cnt from ${SCHEMA + '.' + TABLE_COURTS} where acronym='${this.acronym}'`);
+        const results = await this.connection.any(`SELECT count(*) as cnt from ${Table.Courts} where acronym='${this.acronym}'`);
         if (results && parseInt(results[0]['cnt'])) {
-            await this.connection.none(`UPDATE ${SCHEMA + '.' + TABLE_COURTS} SET court_name='${this.courtName}' where acronym='${this.acronym}'`);
+            await this.connection.none(`UPDATE ${Table.Courts} SET court_name='${this.courtName}' where acronym='${this.acronym}'`);
         } else {
-            await this.connection.none(`INSERT INTO ${SCHEMA + '.' + TABLE_COURTS} (acronym, court_name) VALUES ('${this.acronym}', '${this.courtName}')`);
+            await this.connection.none(`INSERT INTO ${Table.Courts} (acronym, court_name) VALUES ('${this.acronym}', '${this.courtName}')`);
         }
     };
 
@@ -51,30 +43,28 @@ class CourtCSVRow {
             return;
         }
 
-        const results = await this.connection.any(`SELECT count(*) AS cnt FROM ${SCHEMA + '.' + TABLE_CATEGORIES} WHERE category='${category}'`);
+        const results = await this.connection.any(`SELECT count(*) AS cnt FROM ${Table.Categories} WHERE category='${category}'`);
         if (!results || !parseInt(results[0]['cnt'])) {
-            await this.connection.none(`INSERT INTO ${SCHEMA + '.' + TABLE_CATEGORIES} (category) VALUES ('${category}')`);
+            await this.connection.none(`INSERT INTO ${Table.Categories} (category) VALUES ('${category}')`);
         }
     };
 
     importCitationAcronyms = async () => {
         const {acronym, lawReport, category} = this;
-
         if (!acronym) {
             return
         }
-
-        const court = await this.connection.any(`SELECT id from ${SCHEMA + '.' + TABLE_COURTS} where acronym='${acronym}'`);
+        const court = await this.connection.any(`SELECT id from ${Table.Courts} where acronym='${acronym}'`);
         if (!court || !court[0]) { // court with acronym not exist
             return
         }
         const courtId = court[0]['id'];
         // update if exist, insert if not exist
-        const results = await this.connection.any(`SELECT count(*) as cnt from ${SCHEMA + '.' + TABLE_ACRONYMS} where acronym='${acronym}'`);
+        const results = await this.connection.any(`SELECT count(*) as cnt from ${Table.CitationAcronyms} where acronym='${acronym}'`);
         if (results && parseInt(results[0]['cnt'])) {
-            await this.connection.none(`UPDATE ${SCHEMA + '.' + TABLE_ACRONYMS} SET court_id='${courtId}', law_report='${lawReport}', category='${category}' where acronym='${acronym}'`);
+            await this.connection.none(`UPDATE ${Table.CitationAcronyms} SET court_id='${courtId}', law_report='${lawReport}', category='${category}' where acronym='${acronym}'`);
         } else {
-            await this.connection.none(`INSERT INTO ${SCHEMA + '.' + TABLE_ACRONYMS} (acronym, court_id, law_report, category) VALUES ('${acronym}', '${courtId}', '${lawReport}', '${category}')`);
+            await this.connection.none(`INSERT INTO ${Table.CitationAcronyms} (acronym, court_id, law_report, category) VALUES ('${acronym}', '${courtId}', '${lawReport}', '${category}')`);
         }
     };
 

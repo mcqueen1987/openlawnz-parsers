@@ -1,7 +1,6 @@
 const path = require("path");
 const courtCsvFilePath = path.join(__dirname, './data/court_data_import.csv');
 const {readCsvToJson} = require('../common/functions');
-
 const {CourtCSVRow} = require('./CourtCSVRow');
 
 const run = async (connection) => {
