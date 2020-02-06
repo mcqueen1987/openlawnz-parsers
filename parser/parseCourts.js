@@ -1,11 +1,5 @@
 const {findAcronymItemByCitation} = require('./../common/functions');
-
-const SCHEMA = 'cases';
-const COURT_TO_CASES = SCHEMA + '.court_to_cases';
-const CASE_CITATIONS = SCHEMA + '.case_citations';
-const TABLE_COURT = 'courts';
-const COURTS = SCHEMA + '.' + TABLE_COURT;
-const CASES = SCHEMA + '.cases';
+const {Table} = require('./table');
 
 class CourtParser {
     constructor(conn, promise) {
@@ -14,11 +8,11 @@ class CourtParser {
     }
 
     getCitations = () => {
-        return this.connection.any(`SELECT case_id, citation FROM ${CASE_CITATIONS}`);
+        return this.connection.any(`SELECT case_id, citation FROM ${Table.CaseCitations}`);
     };
 
     getCourts = () => {
-        return this.connection.any(`SELECT * FROM ${COURTS}`);
+        return this.connection.any(`SELECT * FROM ${Table.Courts}`);
     };
 
     getCourtNameByCaseText = (caseText) => {
@@ -44,7 +38,7 @@ class CourtParser {
         }
         // update courts row if don't have court_name,
         if (!updatedCourts[foundCourt['id']] && !foundCourt['court_name']) {
-            const foundCase = await this.connection.any(`SELECT case_text from ${CASES} WHERE id=${caseId}`);
+            const foundCase = await this.connection.any(`SELECT case_text from ${Table.Cases} WHERE id=${caseId}`);
             const courtName = this.getCourtNameByCaseText(foundCase[0]['case_text']);
             if (!courtName) {
                 console.log(' can not find court name by : ', citationRow);
@@ -107,11 +101,11 @@ class CourtParser {
 
     getCourtToCasesSQL = async (courtId, caseId) => {
         // insert court_to_cases row, if Court conflict, update
-        const results = await this.connection.any(`SELECT count(*) as cnt from ${COURT_TO_CASES} where case_id='${caseId}'`);
+        const results = await this.connection.any(`SELECT count(*) as cnt from ${Table.CourtToCases} where case_id='${caseId}'`);
         if (results && parseInt(results[0]['cnt'])) {
-            return `UPDATE ${COURT_TO_CASES} SET court_id='${courtId}' where case_id='${caseId}'`;
+            return `UPDATE ${Table.CourtToCases} SET court_id='${courtId}' where case_id='${caseId}'`;
         } else {
-            return `INSERT INTO ${COURT_TO_CASES} (court_id, case_id) VALUES ('${courtId}', '${caseId}')`;
+            return `INSERT INTO ${Table.CourtToCases} (court_id, case_id) VALUES ('${courtId}', '${caseId}')`;
         }
     };
 

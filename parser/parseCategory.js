@@ -1,10 +1,7 @@
 const path = require("path");
 const courtCsvFilePath = path.join(__dirname, './data/court_data_import.csv');
-const tableCitationAcronyms = 'cases.citation_acronyms';
-const tableCategories = 'cases.categories';
-const tableCategoryToCases = 'cases.category_to_cases';
-const tableCaseCitations = 'cases.case_citations';
 const {findAcronymItemByCitation} = require('./../common/functions');
+const {Table} = require('./table');
 
 class CategoryParser {
     constructor(connection) {
@@ -16,9 +13,9 @@ class CategoryParser {
 
     initData = async () => {
         // fetch citations/acronyms/courts
-        this.citations = await this.connection.any(`SELECT case_id, citation FROM ${tableCaseCitations}`);
-        this.categories = await this.connection.any(`SELECT * FROM ${tableCategories}`);
-        this.acronyms = await this.connection.any(`SELECT acronym, category, court_id FROM ${tableCitationAcronyms} where court_id IS NOT NULL`);
+        this.citations = await this.connection.any(`SELECT case_id, citation FROM ${Table.CaseCitations}`);
+        this.categories = await this.connection.any(`SELECT * FROM ${Table.Categories}`);
+        this.acronyms = await this.connection.any(`SELECT acronym, category, court_id FROM ${Table.CitationAcronyms} where court_id IS NOT NULL`);
     };
 
     insertCategoryToCases = async (caseId, foundAcronyms) => {
@@ -33,7 +30,7 @@ class CategoryParser {
         }
         const foundCategory = this.categories.find((categoryItem) => categoryItem.category === category);
         // if category conflict - add both categories (unique (case_id, category_id))
-        const sql = `INSERT INTO ${tableCategoryToCases} (case_id, category_id) VALUES (${caseId}, ${foundCategory['id']}) ON CONFLICT DO NOTHING `;
+        const sql = `INSERT INTO ${Table.CategoryToCases} (case_id, category_id) VALUES (${caseId}, ${foundCategory['id']}) ON CONFLICT DO NOTHING `;
         await this.connection.none(sql);
     };
 
