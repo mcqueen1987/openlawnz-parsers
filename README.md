@@ -22,7 +22,7 @@ yarn install
 
 ## Database Setup
 
-We use Docker to download and provision the OpenLaw NZ database. Simply run `docker.sh` from [openlawnz-orchestration](https://github.com/openlawnz/openlawnz-orchestration) and then update your `.env` file.
+We use Docker to download and provision the OpenLaw NZ database. Simply run `docker.sh` - you will need access to [the devops repo](https://github.com/openlawnz/openlawnz-orchestration) - ask in Slack for that, and then update your `.env` file.
 
 There are 2 schemas:
 
