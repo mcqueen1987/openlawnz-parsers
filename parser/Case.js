@@ -6,6 +6,10 @@ const ignoreCases = {
     // 28648:' ',
     // 14306:'of the ESTATE OF ',
     // 6575:' ',
+    12668: 'empty respondent name',
+    14647: '',
+    12674: '',
+    14647: ''
 };
 
 const focus = [
@@ -19,9 +23,9 @@ const focus = [
  * @param pageSize
  * @returns {Promise<*>}
  */
-const fetchCases = async (conn, pageNum = 1, pageSize = 200) => {
+const fetchCases = async (conn, pageNum = 1, pageSize = 10000) => {
     let sql = `SELECT * FROM ${Table.Cases}`;
-    if(focus.length) {
+    if (focus.length) {
         sql += ' WHERE id in (' +
             focus.join(', ') +
             ') '; // test
@@ -85,9 +89,47 @@ class Case {
             },
             respondent: {
                 type: 'string',
+                filter: (text) => {
+                    // select only TOP 100
+                    const top100 = text.split('\n').splice(0, 100).join('\n');
+
+                    return top100.indexOf('respondent') >= 0
+                        || top100.indexOf('Respondent') >= 0
+                        || top100.indexOf('RESPONDENT') >= 0
+                },
                 patterns: [
-                    /AND([A-Z\s]+)Respondent/,
-                    /\s(?:v|AND)\s([A-Za-z0-9\.\-\s',\/\(\)"ĀŌ]+)\s(?:Hearing:|Court:|Counsel:)/,
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪŪ]+Plaintiff\sAND([0-9A-Za-z\(\)\s\/&,Ä]+)In Chambers:/,
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Plaintiff\sAND([0-9A-Za-z\(\)\s\/&,Ä]+)Memoranda:/,
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Plaintiff\sAND([0-9A-Za-z\(\)\s\/&,Ä]+)Hearing:/,
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Plaintiff\sAND([0-9A-Za-z\(\)\s\/&,Ä]+)CIV/,
+
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+AND([A-Za-z\s]+)Counsel's Memorandum/,
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+AND([A-Za-z&\s]+)Respondents/,
+
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Appellants\sAND([\sA-Za-z\(\)-\\&*–ŪᾹʼ]+)(In Chambers|Hearing)/,
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-]+Appellant\sAND([\sA-Za-z\(\)-\\*–&ʼ\[\]']+)On the papers:/,
+
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Appellant\sAND([\sA-Za-z\(\)-\\*–&ʼ\[\]'Í]+)Hearing/,
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Appellant\sAND([\sA-Za-z\(\)-\\*–&ʼ\[\]'Í]+)Court/,
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Appellant\sAND([\sA-Za-z\(\)-\\*–&ʼ\[\]'Í]+)SC\s\d+\/\d+\s/,
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Appellant([\sA-Za-z\(\)-\\*–&ʼ\[\]'Í]+)Hearing/,
+
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Applicants\sAND([\sA-Za-z\(\)-\\&*–ŪĀŌÇ\[\]'ʼ]+)(In Chambers|Submissions filed|Hearing|On the papers|Representation|Court:)/,
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Applicant\sAND([\sA-Za-z\(\)-\\&*–ŪĀŌÇ\[\]'ʼ]+)(In Chambers:|On the papers|Hearing|Tel Conference|Submissions received|Appearances|Court)/,
+
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Applicants\sAND([\sA-Za-z\(\)-\\&*–ŪĀŌÇ\[\]'ʼ]+)CIV/,
+
+                    /Plaintiff\s+AND\s+([A-Za-z-\s\(\)Ö]+)(Conference|Appearances|On the papers|Hearing):/,
+
+                    /Applicant\s+AND\s+([A-Za-z\s]+)Conference:/,
+
+                    /Plaintiff\s+AND\s+([A-Za-z-\s\(\)Ö]+)Defendant/,
+                    /Plaintiffs([A-Za-z\s]+Defendant)/,
+
+                    /AND([A-Z\s&]+)Respondent/,
+                    /\s(?:v|AND)\s([A-Za-z0-9\.\-\s',\/\(\)"ĀŌ]+)\s(?:Hearing:|Court:|Counsel:|Judgment:)/,
+                    /\n[A-Za-z][A-Za-z0-9,&\(\) ]*\s[v|V]\s([A-Za-z\-\s]+)Hearing/,
+
                 ]
             },
             appearances: {
@@ -137,16 +179,15 @@ class Case {
     saveField = async (fieldName, type, value) => {
         const valueSlot = type === 'number' ? value : `'${value}'`;
         const sql = `UPDATE ${Table.Cases} SET ${fieldName} = ${valueSlot} WHERE id = ${this.id}`;
-        // console.log('===<', sql,'> =====');
         return
         await this.connection.none(sql);
     };
 
     parseAndUpdateField = async (fieldName) => {
-        if(ignoreCases[this.id]){
+        if (ignoreCases[this.id]) {
             return;
         }
-        if(!this.caseText.trim()) {
+        if (!this.caseText.trim()) {
             return;
         }
 
@@ -154,15 +195,20 @@ class Case {
             throw new Error('missing definition for field: ' + fieldName);
         }
 
-        const {type, patterns} = this.fields[fieldName];
+        const {type, patterns, filter} = this.fields[fieldName];
+
+        // use `filter` callback to filter invalid case before parse
+        if(filter && !filter(this.caseText)) {
+            return;
+        }
 
         const value = this.parseFieldValue(patterns);
         if (!value) {
             failed++;
             // if (failed === 2) {
-                console.log(`${this.id} `);
-                // process.exit();
-                return
+            console.log(`${this.id}, `);
+            // process.exit();
+            return
             // }
             // return;
         }
