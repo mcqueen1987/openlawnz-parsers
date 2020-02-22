@@ -45,7 +45,7 @@ describe('parseValueByRegPatterns', () => {
             '([0-9]+)',      // first match
             '([0-9]+[a-z]+)' // ignored match
         ];
-        expect(caseItem.parseValueByRegPatterns(patterns)).to.eql('111');
+        expect(caseItem.parseValueByRegPatterns(patterns, '111abc')).to.eql('111');
     });
     it('should return null if no match', () => {
         const caseItem = new Case(null, {
@@ -56,7 +56,7 @@ describe('parseValueByRegPatterns', () => {
             '(A-Z)+',        // no match
             '([0-9]+[A-Z]+)' // no match
         ];
-        expect(caseItem.parseValueByRegPatterns(patterns)).to.eql(null);
+        expect(caseItem.parseValueByRegPatterns(patterns, '111abc')).to.eql(null);
     })
 });
 
@@ -69,7 +69,7 @@ describe('parseFieldValue', () => {
         const parseFunc = () => {
             return 'testFunc'
         };
-        expect(caseItem.parseFieldValue(parseFunc)).to.eql('testFunc');
+        expect(caseItem.parseFieldValue(parseFunc, '111abc')).to.eql('testFunc');
     });
     it('should work with single regex', () => {
         const caseItem = new Case(null, {
@@ -77,7 +77,7 @@ describe('parseFieldValue', () => {
             case_text: '111abc'
         });
         const pattern = '([0-9]+)';
-        expect(caseItem.parseFieldValue(pattern)).to.eql('111');
+        expect(caseItem.parseFieldValue(pattern, '111abc')).to.eql('111');
     });
     it('should work with multiple regex', () => {
         const caseItem = new Case(null, {
@@ -89,7 +89,7 @@ describe('parseFieldValue', () => {
             '([0-9]+)',      // first match
             '([0-9]+[a-z]+)' // ignored match
         ];
-        expect(caseItem.parseFieldValue(patterns)).to.eql('111');
+        expect(caseItem.parseFieldValue(patterns, '111abc')).to.eql('111');
     });
 });
 
@@ -168,24 +168,6 @@ describe('parseAndUpdateField', () => {
 });
 
 describe('appellant', () => {
-    it('should work 0', async () => {
-        const caseItem = new Case(null, {id: 1, case_text: '\n' +
-                '\n' +
-                '     CA325/2014 [2014] NZCA 504\n' +
-                '\n' +
-                'DESMOND WILLIAM COOK\n' +
-                'HOUSING NEW ZEALAND CORPORATION\n' +
-                'Respondent\n' +
-                'Applicant in person\n' +
-                '15 October 2014 at 10 am'});
-        let actual = '';
-        caseItem.saveField = (field, type, value ) => {
-            actual = value;
-            return '';
-        };
-        await caseItem.parseAndUpdateField('appellant');
-        expect(actual).to.eql('DESMOND WILLIAM COOK')
-    });
     it('should work 1', async () => {
         const caseItem = new Case(null, {id: 1, case_text: 'BETWEEN JOHN GARRY DAVIDOFF\r\nAppellant '});
         let actual = '';

@@ -9,7 +9,8 @@ const run = async (connection) => {
     // );
     for(let i = 0; i < cases.length; i ++) {
         // await cases[i].parseAndUpdateField('appellant');
-        await cases[i].parseAndUpdateField('respondent');
+        // await cases[i].parseAndUpdateField('respondent');
+        await cases[i].parseAndUpdateField('appellant_appearance');
     }
 };
 

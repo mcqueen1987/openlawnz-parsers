@@ -1,15 +1,13 @@
 const {Table} = require('./table');
 
+// when debug = true
+//    1. all failed cases will be logged
+//    2. will execute insert SQL
+const debug = true;
+
+
 let failed = 0;
 const ignoreCases = {
-    // 24208: ' ',
-    // 28648:' ',
-    // 14306:'of the ESTATE OF ',
-    // 6575:' ',
-    12668: 'empty respondent name',
-    14647: '',
-    12674: '',
-    14647: ''
 };
 
 const focus = [
@@ -23,7 +21,7 @@ const focus = [
  * @param pageSize
  * @returns {Promise<*>}
  */
-const fetchCases = async (conn, pageNum = 1, pageSize = 10000) => {
+const fetchCases = async (conn, pageNum = 1, pageSize = 1000) => {
     let sql = `SELECT * FROM ${Table.Cases}`;
     if (focus.length) {
         sql += ' WHERE id in (' +
@@ -90,12 +88,15 @@ class Case {
             respondent: {
                 type: 'string',
                 filter: (text) => {
-                    // select only TOP 100
+                    // select only first 100 lines
                     const top100 = text.split('\n').splice(0, 100).join('\n');
 
-                    return top100.indexOf('respondent') >= 0
+                    if(top100.indexOf('respondent') >= 0
                         || top100.indexOf('Respondent') >= 0
-                        || top100.indexOf('RESPONDENT') >= 0
+                        || top100.indexOf('RESPONDENT') >= 0){
+                        return top100;
+                    }
+                    return null;
                 },
                 patterns: [
                     /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪŪ]+Plaintiff\sAND([0-9A-Za-z\(\)\s\/&,Ä]+)In Chambers:/,
@@ -132,9 +133,36 @@ class Case {
 
                 ]
             },
-            appearances: {
+            appellant_appearance: {   // `in person`/`on own behalf`/ person name /
                 type: 'string',
-                patterns: []
+                filter: (text) => {
+                    // select only first 100 lines
+                    const line100 = text.split('\n').splice(0, 100).join('\n');
+
+                    return line100
+                },
+                patterns: [
+                    /([^\n]+)for the (:?Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff|plantiffs)/i,
+                    /([^\n]+)for (:?Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff|plantiffs)/i,
+                    /(:?Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff)[^\n]+(in person)/i,
+                    /(:?Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff)[^\n]+(on own behalf)/i,
+                    /([^\n]+)on behalf of the Appellant/i,
+                    /Counsel:\s[^\n]+(in person)/i,
+
+                    /Appearances:\s[^\n]+(\(?in Person\)?)/i,
+                    /Appearances:\s[^\n]+appearing (in person)/i,
+
+                    /Appearances:\s[^\n]+(for himself)/i,
+
+                    /([^\n]+)for Crown/i,
+                    /([^\n]+)for the Crown/i,
+
+                    /appears\s(in person)/i,
+
+                    /\s[^\n]+ (in person)/i,
+
+                    // /(on the paper)/i, // could be no appearance for appellants, should be ignored
+                ]
             },
             outcome: {
                 type: 'string',
@@ -152,26 +180,28 @@ class Case {
 
     }
 
-    parseValueByRegPatterns = (patterns) => {
+    parseValueByRegPatterns = (patterns, text) => {
         for (let i = 0; i < patterns.length; i++) {
             const regExp = new RegExp(patterns[i]);
-            let matches = regExp.exec(this.caseText);
-            if (matches && matches[1].trim()) {
+            const matches = regExp.exec(text);
+
+            if (matches && matches[1] && matches[1].trim()) {
                 return matches[1].trim();
             }
+
         }
         return null;
     };
 
-    parseFieldValue = (regPatternsOrFunc) => {
+    parseFieldValue = (regPatternsOrFunc, text) => {
         if (typeof regPatternsOrFunc === "function") {
-            return regPatternsOrFunc();
+            return regPatternsOrFunc(text);
         }
         if (typeof regPatternsOrFunc === 'string') {
-            return this.parseValueByRegPatterns([regPatternsOrFunc]);
+            return this.parseValueByRegPatterns([regPatternsOrFunc], text);
         }
         if (Array.isArray(regPatternsOrFunc)) {
-            return this.parseValueByRegPatterns(regPatternsOrFunc);
+            return this.parseValueByRegPatterns(regPatternsOrFunc, text);
         }
         new Error('invalid type for regPatternsOrFunc');
     };
@@ -179,7 +209,6 @@ class Case {
     saveField = async (fieldName, type, value) => {
         const valueSlot = type === 'number' ? value : `'${value}'`;
         const sql = `UPDATE ${Table.Cases} SET ${fieldName} = ${valueSlot} WHERE id = ${this.id}`;
-        return
         await this.connection.none(sql);
     };
 
@@ -198,28 +227,26 @@ class Case {
         const {type, patterns, filter} = this.fields[fieldName];
 
         // use `filter` callback to filter invalid case before parse
-        if(filter && !filter(this.caseText)) {
-            return;
+        let text = this.caseText;
+        if(filter) {
+            text = filter(this.caseText);
         }
 
-        const value = this.parseFieldValue(patterns);
+        if(!text) {
+            // ignore invalid cases
+            return
+        }
+
+        const value = this.parseFieldValue(patterns, text);
         if (!value) {
             failed++;
-            // if (failed === 2) {
-            console.log(`${this.id}, `);
-            // process.exit();
-            return
-            // }
-            // return;
+            if(debug) {
+                console.log(`${this.id}, `);
+            }
+            return;
         }
-
-        // console.log(`${this.id}   ${value}`);
-
-        // if (value.indexOf('JAMIE NGAHUIA AHSIN') >= 0) {
-        //     console.log(this.caseText);
-        //     process.exit();
-        // }
-        await this.saveField(fieldName, type, value.trim());
+        // save to database if not debug
+        !debug && await this.saveField(fieldName, type, value);
     };
 }
 
