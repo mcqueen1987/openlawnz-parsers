@@ -21,7 +21,7 @@ const focus = [
  * @param pageSize
  * @returns {Promise<*>}
  */
-const fetchCases = async (conn, pageNum = 1, pageSize = 1000) => {
+const fetchCases = async (conn, pageNum = 1, pageSize = 100) => {
     let sql = `SELECT * FROM ${Table.Cases}`;
     if (focus.length) {
         sql += ' WHERE id in (' +
@@ -133,6 +133,22 @@ class Case {
 
                 ]
             },
+            respondent_appearance: {   // `in person`/`on own behalf`/ person name /
+                type: 'string',
+                filter: (text) => {
+                    // select only first 100 lines
+                    const line100 = text.split('\n').splice(0, 100).join('\n');
+
+                    return line100
+                },
+                patterns: [
+                    /[^\n]+for[^\n]*(?:plaintiffs|plaintiff|appellants|appellant|applicants|applicant)([^\n]+)for[^\n]* (?:defendants|defendant|respondents|Respondent)/i,
+                    /Counsel:\s[^\n]+(?:appellant:Plaintiff)\s([^\n]+Respondent)/i,
+                    /([^\n]+)for[^\n]+(?:Defendant|Respondent)/i,
+                    /([^\n]+)for Prisoner/i,
+                    /for appellant ([^\n]+)for Crown/i,
+                ]
+            },
             appellant_appearance: {   // `in person`/`on own behalf`/ person name /
                 type: 'string',
                 filter: (text) => {
@@ -142,10 +158,10 @@ class Case {
                     return line100
                 },
                 patterns: [
-                    /([^\n]+)for the (:?Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff|plantiffs)/i,
-                    /([^\n]+)for (:?Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff|plantiffs)/i,
-                    /(:?Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff)[^\n]+(in person)/i,
-                    /(:?Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff)[^\n]+(on own behalf)/i,
+                    /([^\n]+)for the (?:Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff|plantiffs)/i,
+                    /([^\n]+)for (?:Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff|plantiffs)/i,
+                    /(?:Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff)[^\n]+(in person)/i,
+                    /(?:Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff)[^\n]+(on own behalf)/i,
                     /([^\n]+)on behalf of the Appellant/i,
                     /Counsel:\s[^\n]+(in person)/i,
 
@@ -245,6 +261,7 @@ class Case {
             }
             return;
         }
+        console.log(`${this.id}, ${value}`);
         // save to database if not debug
         !debug && await this.saveField(fieldName, type, value);
     };
