@@ -1,17 +1,27 @@
 const {fetchCases} = require('./Case');
+const {sqlSafeString} = require
+
+const BATCH_SIZE = 500;
 
 const run = async (connection) => {
-    const cases = await fetchCases(connection);
-    // await Promise.all(
-    //     cases.map(async (caseItem) => {
-    //         await caseItem.parseAndUpdateField('appellant');
-    //     })
-    // );
-    for(let i = 0; i < cases.length; i ++) {
-        // await cases[i].parseAndUpdateField('appellant');
-        // await cases[i].parseAndUpdateField('respondent');
-        // await cases[i].parseAndUpdateField('appellant_appearance');
-        await cases[i].parseAndUpdateField('respondent_appearance');
+    // fetch and handle cases by page
+    let page = 0;
+    while (true) {
+        page ++;
+        const cases = await fetchCases(connection, page, BATCH_SIZE);
+        await Promise.all(cases.map(async (row) => {
+             return row.parseAndUpdateFields([
+                'appellant',
+                'respondent',
+                'appellant_appearance',
+                'respondent_appearance',
+                'claimant_age'
+            ])
+        }));
+        // break when end
+        if (cases.length < BATCH_SIZE) {
+            break;
+        }
     }
 };
 

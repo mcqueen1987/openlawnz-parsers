@@ -1,17 +1,23 @@
 const {Table} = require('./table');
 
-// when debug = true
+// when DEBUG = true
 //    1. all failed cases will be logged
-//    2. will execute insert SQL
-const debug = true;
+//    2. skip insert SQL
+// TODO: may place in .env or other shared place
+const DEBUG = false;
+
+// DEBUG ONLY
+// will ignored cases with id included in it if not empty
+const ignoreCases = [];
+
+// DEBUG ONLY
+//  will only execute cases with id included in it if not empty
+const focus = [];
 
 
-let failed = 0;
-const ignoreCases = {
+const escapeStringForSQL = (str) => {
+    return str.replace(/'/g, "''").substr(0, 512);
 };
-
-const focus = [
-];
 
 
 /**
@@ -32,6 +38,7 @@ const fetchCases = async (conn, pageNum = 1, pageSize = 100) => {
             sql += ` LIMIT ${pageSize} OFFSET ${(pageNum - 1) * pageSize}`;
         }
     }
+    console.log((pageNum - 1) * pageSize);
     const results = await conn.any(sql);
     return results.map(row => new Case(conn, row));
 };
@@ -46,7 +53,7 @@ class Case {
         this.fields = {
             appellant: {
                 type: 'string',
-                patterns: [  // todo unfinished
+                patterns: [
                     /BETWEEN\s([A-Za-z\-\s]+)Applicants\sAND/,
                     /BETWEEN\s([A-Za-z\-\s,Ā]+)Appellants\sAND/,
                     /BETWEEN\s([A-Za-z0-9\(\)\/\-\s,'\.Āʼ"&]+)(?:Applicant|Appellant)\s(AND)?/,
@@ -89,11 +96,11 @@ class Case {
                 type: 'string',
                 filter: (text) => {
                     // select only first 100 lines
-                    const top100 = text.split('\n').splice(0, 100).join('\n');
+                    const top100 = text.split('\n').slice(0, 100).join('\n');
 
-                    if(top100.indexOf('respondent') >= 0
+                    if (top100.indexOf('respondent') >= 0
                         || top100.indexOf('Respondent') >= 0
-                        || top100.indexOf('RESPONDENT') >= 0){
+                        || top100.indexOf('RESPONDENT') >= 0) {
                         return top100;
                     }
                     return null;
@@ -102,6 +109,8 @@ class Case {
                     /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪŪ]+Plaintiff\sAND([0-9A-Za-z\(\)\s\/&,Ä]+)In Chambers:/,
                     /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Plaintiff\sAND([0-9A-Za-z\(\)\s\/&,Ä]+)Memoranda:/,
                     /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Plaintiff\sAND([0-9A-Za-z\(\)\s\/&,Ä]+)Hearing:/,
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Applicant\sAND([0-9A-Za-z\(\)\s\/&,Ä]+)Respondent/,
+
                     /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Plaintiff\sAND([0-9A-Za-z\(\)\s\/&,Ä]+)CIV/,
 
                     /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+AND([A-Za-z\s]+)Counsel's Memorandum/,
@@ -110,8 +119,7 @@ class Case {
                     /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Appellants\sAND([\sA-Za-z\(\)-\\&*–ŪᾹʼ]+)(In Chambers|Hearing)/,
                     /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-]+Appellant\sAND([\sA-Za-z\(\)-\\*–&ʼ\[\]']+)On the papers:/,
 
-                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Appellant\sAND([\sA-Za-z\(\)-\\*–&ʼ\[\]'Í]+)Hearing/,
-                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Appellant\sAND([\sA-Za-z\(\)-\\*–&ʼ\[\]'Í]+)Court/,
+                    /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Appellant\sAND([\sA-Za-z\(\)-\\*–&ʼ\[\]'Í]+)(?:Hearing:|Court:|Counsel:)/,
                     /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Appellant\sAND([\sA-Za-z\(\)-\\*–&ʼ\[\]'Í]+)SC\s\d+\/\d+\s/,
                     /BETWEEN[A-Za-z0-9,'&\.\/\s\(\)-ĀŌÄŪ]+Appellant([\sA-Za-z\(\)-\\*–&ʼ\[\]'Í]+)Hearing/,
 
@@ -135,31 +143,57 @@ class Case {
             },
             respondent_appearance: {   // `in person`/`on own behalf`/ person name /
                 type: 'string',
+                validate: (value) => {
+                    // filter out the invalid value
+                    return !value.startsWith('[')
+                },
                 filter: (text) => {
                     // select only first 100 lines
-                    const line100 = text.split('\n').splice(0, 100).join('\n');
-
+                    const line100 = text.split('\n').slice(0, 100).join('\n');
+                    // ignore if
+                    // '''''''''''''
+                    // Hearing:
+                    //     on the papers
+                    // '''''''''''''
+                    if (line100.match(/Hearing:\son the papers/i)) {
+                        return null;
+                    }
                     return line100
                 },
                 patterns: [
-                    /[^\n]+for[^\n]*(?:plaintiffs|plaintiff|appellants|appellant|applicants|applicant)([^\n]+)for[^\n]* (?:defendants|defendant|respondents|Respondent)/i,
-                    /Counsel:\s[^\n]+(?:appellant:Plaintiff)\s([^\n]+Respondent)/i,
+                    /(?:Appellants|plaintiffs) (No appearance)/i, // !!! no appearance, ignore this
+
+                    /Defendant (in person)/i,
+
+                    /Appearances:\s([^\n]+)for defendant\//i,
+
+                    /appellant ([^\n]+) for (?:the )?Crown/i,
+                    /Crown([^\n]+)for (?:the )?Prisoner/i,
+
+
+                    /Counsel:\s[^\n]+(?:appellant|plaintiff|plaintiffs|Applicant)\s([^\n]+) for[^\n]*(?:Respondent|Defendants)/i,
+                    /Counsel:\s[^\n]+(?:appellant|plaintiff|plaintiffs|Applicant)\s([^\n]+Respondent)/i,
+                    /Counsel:[^\n]+Applicant([^\n]+)for Respondent/i,
+
+                    /Appearances:\s[^\n]+(?:appellant|plaintiff|plaintiffs|Applicant)\s([^\n]+) for[^\n]*(?:Respondent|Defendants)/i,
+                    /Appearances:\s[^\n]+(?:appellant|plaintiff|plaintiffs|Applicant)\s([^\n]+Respondent)/i,
+
+                    /in person ([^\n]+) for the Respondent/i,
+
+                    /[^\n]+for[^\n]*(?:plaintiffs|plaintiff|appellants|appellant|applicants|applicant)([^\n])for[^\n]*(?:defendants|defendant|respondents|Respondent)/i,
+
                     /([^\n]+)for[^\n]+(?:Defendant|Respondent)/i,
-                    /([^\n]+)for Prisoner/i,
-                    /for appellant ([^\n]+)for Crown/i,
                 ]
             },
             appellant_appearance: {   // `in person`/`on own behalf`/ person name /
                 type: 'string',
                 filter: (text) => {
                     // select only first 100 lines
-                    const line100 = text.split('\n').splice(0, 100).join('\n');
-
-                    return line100
+                    return text.split('\n').slice(0, 100).join('\n');
                 },
                 patterns: [
-                    /([^\n]+)for the (?:Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff|plantiffs)/i,
                     /([^\n]+)for (?:Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff|plantiffs)/i,
+                    /([^\n]+)for the (?:Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff|plantiffs)/i,
                     /(?:Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff)[^\n]+(in person)/i,
                     /(?:Appellants|Appellant|Applicants|Applicant|plaintiffs|plaintiff)[^\n]+(on own behalf)/i,
                     /([^\n]+)on behalf of the Appellant/i,
@@ -190,7 +224,13 @@ class Case {
             },
             claimant_age: {
                 type: 'number',
-                patterns: []
+                filter: (text) => {
+                    // select only first 100 lines
+                    return text.split('\n').slice(0, 100).join('\n');
+                },
+                patterns: [
+                    /(\d+)\syears\sold/i,
+                ]
             },
         };
 
@@ -201,6 +241,7 @@ class Case {
             const regExp = new RegExp(patterns[i]);
             const matches = regExp.exec(text);
 
+            // MARK: console.log(patterns[i]);
             if (matches && matches[1] && matches[1].trim()) {
                 return matches[1].trim();
             }
@@ -223,13 +264,22 @@ class Case {
     };
 
     saveField = async (fieldName, type, value) => {
-        const valueSlot = type === 'number' ? value : `'${value}'`;
+        if (DEBUG) {
+            return;
+        }
+
+        const valueSlot = type === 'number' ? value : `'${escapeStringForSQL(value)}'`;
         const sql = `UPDATE ${Table.Cases} SET ${fieldName} = ${valueSlot} WHERE id = ${this.id}`;
         await this.connection.none(sql);
     };
 
+    // update all fields
+    parseAndUpdateFields = async (fields) => {
+        return Promise.all(fields.map(async (field) => this.parseAndUpdateField(field)));
+    };
+
     parseAndUpdateField = async (fieldName) => {
-        if (ignoreCases[this.id]) {
+        if (ignoreCases.indexOf(this.id) >= 0) {
             return;
         }
         if (!this.caseText.trim()) {
@@ -240,30 +290,28 @@ class Case {
             throw new Error('missing definition for field: ' + fieldName);
         }
 
-        const {type, patterns, filter} = this.fields[fieldName];
+        const {type, patterns, filter, validate} = this.fields[fieldName];
 
         // use `filter` callback to filter invalid case before parse
         let text = this.caseText;
-        if(filter) {
+        if (filter) {
             text = filter(this.caseText);
         }
 
-        if(!text) {
-            // ignore invalid cases
+        // ignore invalid cases
+        if (!text) {
             return
         }
 
         const value = this.parseFieldValue(patterns, text);
-        if (!value) {
-            failed++;
-            if(debug) {
+        if (!value || (validate && !validate(value))) {
+            if (DEBUG) {
                 console.log(`${this.id}, `);
             }
             return;
         }
-        console.log(`${this.id}, ${value}`);
         // save to database if not debug
-        !debug && await this.saveField(fieldName, type, value);
+        await this.saveField(fieldName, type, value);
     };
 }
 

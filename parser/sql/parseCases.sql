@@ -1,0 +1,6 @@
+ALTER TABLE cases.cases ADD COLUMN appellant VARCHAR(1000) DEFAULT NULL;
+ALTER TABLE cases.cases ADD COLUMN respondent VARCHAR(1000) DEFAULT NULL;
+ALTER TABLE cases.cases ADD COLUMN appellant_appearance VARCHAR(1000) DEFAULT NULL;
+ALTER TABLE cases.cases ADD COLUMN respondent_appearance VARCHAR(1000) DEFAULT NULL;
+ALTER TABLE cases.cases ADD COLUMN claimant_age INTEGER;
+
