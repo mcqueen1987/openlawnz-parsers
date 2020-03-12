@@ -698,15 +698,16 @@ describe("Footnotes", function() {
 						results.some(
 							ref =>
 								ref.title === "Insolvency Act 2006" &&
-								ref.sections.some(
-									section => section.id == "17" && section.count === 1
-								)
+								ref.sections.filter(
+									section => section.id.startsWith("17")
+								).length === 3
 						)
 					).equal(true);
 					expect(
 						results.some(
 							ref =>
 								ref.title === "Gambling Act 2003" &&
+                                ref.sections.length === 1 &&
 								ref.sections.some(
 									section => section.id == "310" && section.count === 1
 								)
@@ -716,9 +717,10 @@ describe("Footnotes", function() {
 						results.some(
 							ref =>
 								ref.title === "Unit Titles Act 2010" &&
-								ref.sections.some(
-									section => section.id == "18" && section.count === 1
-								)
+								ref.sections.length === 1 &&
+                                ref.sections.some(
+                                    section => section.id == "18" && section.count === 1
+                				)
 						)
 					).equal(true);
 				} catch (ex) {

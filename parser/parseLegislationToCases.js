@@ -576,6 +576,28 @@ const processCase = (legalCase, legislations) => {
 		});
 	}
 
+	// aggregate sub legislation
+    legislationReferences.forEach( leg => {
+    	Object.keys(leg.groupedSections).forEach( (sectionId) => {
+    		if(sectionId.indexOf('(') >0 ){
+    			// extract root leg id: 17(1)(d)(ii) => 17
+				const rootId = sectionId.substr(0, sectionId.indexOf('('));
+
+				// check whether we have the root leg
+				const rootLeg = legislationReferences.find((rootSearchLeg) => {
+					return Object.keys(rootSearchLeg.groupedSections).includes(rootId);
+				});
+				if(rootLeg && rootLeg.title !== leg.title) {
+                    // push into the root leg's groupedSection if found
+					// console.log(`push ${sectionId} into ${rootId}`);
+                    rootLeg.groupedSections[sectionId] = {...leg.groupedSections[sectionId]};
+                    delete(leg.groupedSections[sectionId])
+                }
+			}
+		})
+
+	});
+
 	return {
 		extractionConfidence,
 		legislationReferences
