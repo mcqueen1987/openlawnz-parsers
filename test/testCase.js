@@ -5,7 +5,7 @@ const should = chai.should;
 const {fetchCases, Case} = require('../parser/Case');
 
 describe('fetchCases', () => {
-    it('should select all cases', async () => {
+    it('should select cases with pagination', async () => {
         let actualSQL = '';
         const conn = {
             any: (sql) => {
@@ -14,7 +14,7 @@ describe('fetchCases', () => {
             }
         };
         const actual = await fetchCases(conn);
-        const expectedSQL = 'SELECT * FROM cases.cases';
+        const expectedSQL = 'SELECT * FROM cases.cases LIMIT 100 OFFSET 0';
         expect(actualSQL).to.eql(expectedSQL);
         expect(actual[0].id).to.eql(1);
         expect(actual[0].caseText).to.eql('hahahah');
@@ -28,7 +28,7 @@ describe('fetchCases', () => {
             }
         };
         await fetchCases(conn, 10, 20);
-        const expectedSQL = 'SELECT * FROM cases.cases LIMIT 20 OFFSET 200';
+        const expectedSQL = 'SELECT * FROM cases.cases LIMIT 20 OFFSET 180';
         expect(actualSQL).to.eql(expectedSQL);
 
     })
