@@ -1,10 +1,10 @@
 const { readFileSync } = require("fs");
-const request = require("request");
 const chai = require("chai");
 chai.should();
 chai.use(require("./lib/chai-things"));
 const expect = chai.expect;
 const { processCase } = require("../parser/parseLegislationToCases");
+const mockLegislationData = require("../test/data/legislation/mock-legislation-data");
 
 let dataCache = {};
 
@@ -13,21 +13,12 @@ const getLegislation = () => {
 		if (dataCache["legislation"]) {
 			resolve(dataCache["legislation"]);
 		} else {
-			request(
-				"https://s3-ap-southeast-2.amazonaws.com/openlawnz-legislation/legislation.json",
-				(err, response, body) => {
-					if (err) {
-						reject(err);
-					} else {
-						dataCache["legislation"] = JSON.parse(body).map(
-							(legislation, i) => {
-								return { ...legislation, id: i };
-							}
-						);
-						resolve(dataCache["legislation"]);
-					}
-				}
-			);
+            dataCache["legislation"] = mockLegislationData.map(
+                (legislation, i) => {
+                    return { ...legislation, id: i };
+                }
+            );
+            resolve(dataCache["legislation"]);
 		}
 	});
 };
@@ -87,6 +78,7 @@ const getTestResult = async (fileName, cb, caseData) => {
 				})
 			};
 		});
+
 
 		cb(null, results);
 	});
@@ -707,7 +699,7 @@ describe("Footnotes", function() {
 							ref =>
 								ref.title === "Insolvency Act 2006" &&
 								ref.sections.some(
-									section => section.id == "17" && section.count === 3
+									section => section.id == "17" && section.count === 1
 								)
 						)
 					).equal(true);

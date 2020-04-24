@@ -5,7 +5,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "set SUPPRESS_LOGGING=true && mocha",
+    "test": "set SUPPRESS_LOGGING=true && mocha --require @babel/register",
     "parser": "yarn test && cd parser && node index.js --env=local",
     "debug": "node parseCaseToCase.js --env=dev"
   },
@@ -19,6 +19,7 @@
   "dependencies": {
     "async": "^3.1.0",
     "chai": "^4.2.0",
+    "csv-parser": "^2.3.2",
     "dotenv": "^8.1.0",
     "download": "^7.1.0",
     "fs-extra": "^8.1.0",
@@ -29,5 +30,14 @@
     "request": "^2.88.0",
     "rimraf": "^3.0.0",
     "yargs": "^14.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.8.4",
+    "@babel/node": "^7.8.4",
+    "@babel/plugin-proposal-class-properties": "^7.8.3",
+    "@babel/plugin-transform-runtime": "^7.8.3",
+    "@babel/preset-env": "^7.8.4",
+    "@babel/register": "^7.8.3",
+    "@babel/runtime": "^7.8.4"
   }
 }
