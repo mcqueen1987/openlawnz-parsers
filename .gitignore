@@ -69,3 +69,5 @@ xpdf/
 
 .DS_STORE
 .vscode/
+
+.idea/
