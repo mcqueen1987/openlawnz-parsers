@@ -22,3 +22,7 @@ CREATE TABLE IF NOT EXISTS cases.category_to_cases (
     FOREIGN KEY (category_id) REFERENCES cases.categories(id),
     unique (case_id, category_id)
   );
+-- // todo n case_id to n category_id
+-- modify following sql file and add what I have added and modified in sql files
+-- echo "Downloading latest OpenLaw NZ database"
+-- curl -o openlawnzdb.sql https://s3-ap-southeast-2.amazonaws.com/pgdump.openlaw.nz/latest.sql
