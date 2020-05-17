@@ -3,10 +3,14 @@ const YearWorker = require('./YearWorker');
 class ParserManager {
     constructor(caseId) {
         this.caseId = caseId;
+        this.queryCase()
+
+        // field name need to be exported after parse
+        this.exportFields = ['caseId'];
     }
 
     queryCase() {
-        // return a case's all related data
+        // fetch a full case from S3
         this.case = { 'id': 1, 'caseText': 'test' };
     }
 
@@ -18,9 +22,16 @@ class ParserManager {
     process() {
         const tasks = this.buildTasks();
         tasks.forEach(task => {
-            const data = task.parse();
-            task.write(data);
+            task.process();
+        });
+    }
+
+    export() {
+        const caseJson = {}
+        this.exportFields.forEach(field => {
+            caseJson[field] = this.case[field];
         })
+        return caseJson;
     }
 }
 
