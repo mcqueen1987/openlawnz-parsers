@@ -5,14 +5,12 @@
 /*     citation.citation   => citation.citation                    */
 /*******************************************************************/
 
-
-
 /**
  * regex of Neutral Citation
  *
  * test/data/citation-year.txt iis the sample file of Neutral Citation
  */
-const regNeutralCitation = /([\[|\(]?)(\d{4})([\]|\)]?)\s?(\d*\s)?(SC|RMA|NZELC|NZBLC|NZRA|NZCR|ERNZ|NZELR|IPR|NZCLC|NZRMA|CRNZ|FRNZ|ELRNZ|HRNZ|TCLR|NZAR|PRNZ|NZFLR|NZTRA|NZTR|NZTC|NZACC|ACC|NZDC|NZFC|NZHC|HC|NZCAA|NZCA|NZSC|NZEnvC|NZEmpC|NZACA|NZBSA|NZCCLR|NZCC|NZCOP|NZDRT|NZHRRT|NZIACDT|NZIPT|NZIEAA|NZLVT|NZLCDT|NZLAT|NZSHD|NZLLA|NZMVDT|NZPSPLA|NZREADT|NZSSAA|NZSAAA|NZLR|NZCPR)/;
+const regNeutralCitation = /([\[|\(]?)(\d{4})([\]|\)]?)\s?(\d*\s)?(SC|RMA|NZELC|NZBLC|NZRA|NZCR|ERNZ|NZELR|IPR|NZCLC|NZRMA|CRNZ|FRNZ|ELRNZ|HRNZ|TCLR|NZAR|PRNZ|NZFLR|NZTRA|NZTR|NZTC|NZACC|ACC|NZDC|NZFC|NZHC|HC|NZCAA|NZCA|NZSC|NZEnvC|NZEmpC|NZACA|NZBSA|NZCCLR|NZCC|NZCOP|NZDRT|NZHRRT|NZIACDT|NZIPT|NZIEAA|NZLVT|NZLCDT|NZLAT|NZSHD|NZLLA|NZMVDT|NZPSPLA|NZREADT|NZSSAA|NZSAAA|NZLR|NZCPR)/
 
 /**
  * regex of Court Filing Numbers
@@ -34,8 +32,7 @@ const regNeutralCitation = /([\[|\(]?)(\d{4})([\]|\)]?)\s?(\d*\s)?(SC|RMA|NZELC|
  * HC CHCH 2007-409-000208
  * HC TAU CIV -2010-470-357
  */
-const regCourtFillingCitation = /(CIV|CHCH|CRI|CIR|WN|AK|CIVP)[\s|\-|\.|:]*(\d{4})[\-|\s]/i;
-
+const regCourtFillingCitation = /(CIV|CHCH|CRI|CIR|WN|AK|CIVP)[\s|\-|\.|:]*(\d{4})[\-|\s]/i
 
 /**
  * regex of the citations except neutral citation or court filing numbers,
@@ -48,46 +45,49 @@ const regCourtFillingCitation = /(CIV|CHCH|CRI|CIR|WN|AK|CIVP)[\s|\-|\.|:]*(\d{4
  * SCA650/2011
  * SSC 101/2011
  */
-const regOtherCitation = /(?:SC|CA\w*)(\s\d{1,3})?[\/](\d{4})/;
+const regOtherCitation = /(?:SC|CA\w*)(\s\d{1,3})?[\/](\d{4})/
 
 class YearWorker {
     constructor(caseItem, manager) {
-        this.case = caseItem;
-        this.manager = manager;
+        this.case = caseItem
+        this.manager = manager
     }
 
     get type() {
-        return 'Year Worker';
+        return 'Year Worker'
     }
 
     // Entrance
     process() {
         if (!this.case.citation) {
-            this.manager.fail(this.type, 'empty citation');
-            return;
+            this.manager.fail(this.type, 'empty citation')
+            return
         }
         // 1. parse year from citation
         const year = this.parseNeutralCitation()
         if (year) {
-            this.case.year = year;
-            this.manager.success(this.type, 'set by citation');
+            this.case.year = year
+            this.manager.success(this.type, 'set by citation')
             return
         }
 
         // 2. should ignore
-        if (this.shouldExclude_CourtFilingNumbers() || this.shouldExclude_OtherCitations()) {
-            this.manager.info(this.type, 'ignored');
-            return;
+        if (
+            this.shouldExclude_CourtFilingNumbers() ||
+            this.shouldExclude_OtherCitations()
+        ) {
+            this.manager.info(this.type, 'ignored')
+            return
         }
 
         // 3. default to year of the case_date if fail
-        this.case.year = this.parseYearFromCaseDate();
+        this.case.year = this.parseYearFromCaseDate()
         this.manager.fail(this.type, 'set by case_date ' + this.case.year)
     }
 
     // parse neutral citations
     parseNeutralCitation() {
-        const matches = this.case.citation.match(regNeutralCitation);
+        const matches = this.case.citation.match(regNeutralCitation)
         if (matches && matches[2]) {
             return parseInt(matches[2])
         }
@@ -95,14 +95,14 @@ class YearWorker {
     }
 
     shouldExclude_CourtFilingNumbers() {
-        const matches = this.case.citation.match(regCourtFillingCitation);
+        const matches = this.case.citation.match(regCourtFillingCitation)
         if (matches && matches[2]) {
             return true
         }
         return false
     }
     shouldExclude_OtherCitations() {
-        const matches = this.case.citation.match(regOtherCitation);
+        const matches = this.case.citation.match(regOtherCitation)
         if (matches && matches[2]) {
             return true
         }
@@ -110,7 +110,7 @@ class YearWorker {
     }
 
     parseYearFromCaseDate() {
-        return parseInt(this.case.case_date.substr(0, 4)) || undefined;
+        return parseInt(this.case.case_date.substr(0, 4)) || undefined
     }
 }
 
